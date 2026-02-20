@@ -3,52 +3,58 @@ const fs = require('fs');
 
 const ig = new IgApiClient();
 
-// ====== EDIT HERE ======
+// ===== EDIT =====
 const USERNAME = "bat.5916445";
 const PASSWORD = "rMuD@e5HH5vuvJE";
-const VIDEO_PATH = "./video.mp4"; // your video path
-const CAPTION = "Hello from node bot 🚀";
-// =======================
+const VIDEO_PATH = "./reel.mp4";
+const CAPTION = "My reel from bot 🚀";
+// =================
 
-async function loginAndSaveSession() {
+async function login() {
     ig.state.generateDevice(USERNAME);
 
-    // load session if exists
     if (fs.existsSync("session.json")) {
-        console.log("🔁 Loading saved session...");
-        const session = JSON.parse(fs.readFileSync("session.json"));
-        await ig.state.deserialize(session);
-        return true;
+        try {
+            console.log("🔁 Loading session...");
+            const session = JSON.parse(fs.readFileSync("session.json"));
+            await ig.state.deserialize(session);
+            await ig.account.currentUser();
+            console.log("✅ Session OK");
+            return;
+        } catch {
+            console.log("⚠️ Session expired, relogin");
+        }
     }
 
-    console.log("🔐 Logging in...");
+    console.log("🔐 Login fresh...");
+    await ig.simulate.preLoginFlow();
     await ig.account.login(USERNAME, PASSWORD);
+    await ig.simulate.postLoginFlow();
 
-    // save session
     const serialized = await ig.state.serialize();
     delete serialized.constants;
-
     fs.writeFileSync("session.json", JSON.stringify(serialized));
     console.log("✅ Session saved");
 }
 
-async function uploadVideo() {
+async function uploadReel() {
     try {
-        await loginAndSaveSession();
+        await login();
 
-        console.log("📤 Uploading video...");
+        console.log("📤 Uploading reel...");
 
-        const videoBuffer = fs.readFileSync(VIDEO_PATH);
+        const video = fs.readFileSync(VIDEO_PATH);
 
         await ig.publish.video({
-            video: videoBuffer,
+            video: video,
             caption: CAPTION,
+            product_type: "clips", // important for reels
         });
 
-        console.log("🎉 Video uploaded successfully!");
-    } catch (err) {
-        console.log("❌ Error:", err.message);
+        console.log("🎉 Reel uploaded successfully!");
+    } catch (e) {
+        console.log("❌ Error:", e.response?.body || e.message);
     }
 }
 
-uploadVideo();
+uploadReel();
